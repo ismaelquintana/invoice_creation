@@ -9,4 +9,6 @@ defmodule Invoice do
             concepts: [],
             sale_amount: nil,
             vat: nil
+
+  def new(), do: %Invoice{}
 end

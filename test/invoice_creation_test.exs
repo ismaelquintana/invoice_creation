@@ -5,4 +5,8 @@ defmodule InvoiceCreationTest do
   test "greets the world" do
     assert InvoiceCreation.hello() == :world
   end
+
+  test "create new invoice" do
+    assert Invoice.new() == %Invoice{}
+  end
 end
