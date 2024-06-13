@@ -9,4 +9,8 @@ defmodule InvoiceCreationTest do
   test "create new invoice" do
     assert Invoice.new() == %Invoice{}
   end
+
+  test "create new bill" do
+    assert Bill.new() == %Bill{}
+  end
 end
