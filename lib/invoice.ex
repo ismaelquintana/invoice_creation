@@ -10,14 +10,27 @@ defmodule Invoice do
             sale_amount: nil,
             vat: nil
 
+  @typedoc """
+    Type that represents Invoice struct
+  """
+  @type t :: %__MODULE__{
+          date: Date.t() | nil,
+          number: String.t() | nil,
+          bill_to: String.t() | nil,
+          vendor_details: String.t() | nil,
+          items: [Item.t() | nil],
+          sale_amount: integer | nil,
+          vat: integer | nil
+        }
+
+  @spec new :: Invoice.t()
   def new do
     date = Date.utc_today()
     number = "#{date.year}-0000"
 
     %Invoice{
       date: date,
-      number: number,
-      items: []
+      number: number
     }
   end
 end
