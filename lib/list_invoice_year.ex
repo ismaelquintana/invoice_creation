@@ -2,7 +2,7 @@ defmodule ListInvoiceYear do
   @moduledoc """
   Struct for list of invoices per year
   """
-  defstruct year: 0, next_id: 1, invoices: []
+  defstruct year: 0, next_id: 1, invoices: %{}
 
   @typedoc """
     Type that representsListInvoiceYear struct
@@ -14,8 +14,7 @@ defmodule ListInvoiceYear do
     %ListInvoiceYear{}
   end
 
-  @spec add_invoice(ListInvoiceYear.t(), Invoice.t()) ::
-          {:ok, ListInvoiceYear.t()} | {:error, String.t()}
+  @spec add_invoice(ListInvoiceYear.t(), Invoice.t()) :: ListInvoiceYear.t()
   def add_invoice(list_invoice_year, invoice) do
     if list_invoice_year.year == invoice.date.year do
       invoice_number =
@@ -24,16 +23,18 @@ defmodule ListInvoiceYear do
 
       invoice_with_number = %Invoice{invoice | number: invoice_number}
 
-      {
-        :ok,
-        %ListInvoiceYear{
-          list_invoice_year
-          | next_id: list_invoice_year.next_id + 1,
-            invoices: [invoice_with_number | list_invoice_year.invoices]
-        }
+      %ListInvoiceYear{
+        list_invoice_year
+        | next_id: list_invoice_year.next_id + 1,
+          invoices:
+            Map.put(
+              list_invoice_year.invoices,
+              invoice_number,
+              invoice_with_number
+            )
       }
     else
-      {:error, "Year not correct!"}
+      list_invoice_year
     end
   end
 end

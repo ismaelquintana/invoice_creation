@@ -2,17 +2,20 @@ defmodule Item do
   @moduledoc """
   Documentation for Item struct
   """
-  defstruct invoice_number: nil,
-            description: nil,
+  defstruct description: nil,
             units: nil,
             amount: nil
 
   @type t :: %__MODULE__{
-          invoice_number: String.t() | nil,
           description: String.t() | nil,
           units: integer() | nil,
           amount: integer() | nil
         }
+
+  @spec new(description: String.t(), units: Integer.t(), amount: Integer.t()) :: Item.t()
+  def new(description: description, units: units, amount: amount) do
+    %Item{description: description, units: units, amount: amount}
+  end
 
   @spec new :: Item.t()
   def new do

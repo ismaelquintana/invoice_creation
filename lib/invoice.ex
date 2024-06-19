@@ -30,7 +30,17 @@ defmodule Invoice do
 
     %Invoice{
       date: date,
-      number: number
+      number: number,
+      sale_amount: 0
+    }
+  end
+
+  @spec add_item(Invoice.t(), Item.t()) :: Invoice.t()
+  def add_item(invoice, item) do
+    %Invoice{
+      invoice
+      | items: [item | invoice.items],
+        sale_amount: invoice.sale_amount + item.amount * item.units
     }
   end
 end
