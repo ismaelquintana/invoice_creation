@@ -12,7 +12,7 @@ defmodule Item do
           amount: integer() | nil
         }
 
-  @spec new(description: String.t(), units: Integer.t(), amount: Integer.t()) :: Item.t()
+  @spec new(description: String.t(), units: integer, amount: integer) :: Item.t()
   def new(description: description, units: units, amount: amount) do
     %Item{description: description, units: units, amount: amount}
   end
