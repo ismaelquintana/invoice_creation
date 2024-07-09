@@ -5,7 +5,7 @@ defmodule ListInvoiceYear do
   defstruct year: nil, next_id: nil, invoices: nil
 
   @typedoc """
-    Type that representsListInvoiceYear struct
+    Type that represents ListInvoiceYear struct
   """
   @type t :: %__MODULE__{
           year: integer() | nil,
@@ -18,12 +18,22 @@ defmodule ListInvoiceYear do
     %ListInvoiceYear{}
   end
 
+  @spec new(integer) :: ListInvoiceYear.t()
+  def new(year) do
+    %ListInvoiceYear{next_id: 1, year: year, invoices: Map.new()}
+  end
+
   @spec add_invoice(ListInvoiceYear.t(), Invoice.t()) :: ListInvoiceYear.t()
   def add_invoice(list_invoice_year, invoice) do
     if list_invoice_year.year == invoice.date.year do
       invoice_number =
         Integer.to_string(list_invoice_year.year) <>
-          "-" <> String.pad_leading(Integer.to_string(list_invoice_year.next_id), 4, "0")
+          "-" <>
+          String.pad_leading(
+            Integer.to_string(list_invoice_year.next_id),
+            4,
+            "0"
+          )
 
       invoice_with_number = %Invoice{invoice | number: invoice_number}
 
