@@ -10,7 +10,7 @@ defmodule InvoiceCreationTest do
       bill_to: nil,
       date: date,
       items: [],
-      number: Integer.to_string(year) <> "-0000",
+      number: Integer.to_string(year) <> "-0001",
       sale_amount: 0,
       vat: nil,
       vendor_details: nil
@@ -51,6 +51,24 @@ defmodule InvoiceCreationTest do
     list = ListInvoiceYear.new(2024)
 
     assert list == %ListInvoiceYear{invoices: %{}, next_id: 1, year: 2024}
+  end
+
+  test "create invoice with keys that do not exist in struct" do
+    invoice1 = Invoice.new(year: 2024)
+    invoice2 = Invoice.new()
+
+    assert invoice1 == invoice2
+  end
+
+  test "create invoice with keys" do
+    invoice =
+      Invoice.new(
+        bill_to: "Client test",
+        vendor_details: "vendor test"
+      )
+
+    assert invoice.bill_to == "Client test"
+    assert invoice.vendor_details == "vendor test"
   end
 
   test "add invoice to list invoice year" do

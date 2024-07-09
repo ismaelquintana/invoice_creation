@@ -26,7 +26,7 @@ defmodule Invoice do
   @spec new :: Invoice.t()
   def new do
     date = Date.utc_today()
-    number = "#{date.year}-0000"
+    number = "#{date.year}-0001"
 
     %Invoice{
       date: date,
@@ -37,20 +37,11 @@ defmodule Invoice do
 
   @spec new(keyword()) :: Invoice.t()
   def new(opts) do
-    invoice = new()
+    map =
+      opts
+      |> Enum.into(%{})
 
-    Enum.reduce(
-      opts,
-      invoice,
-      fn {k, v}, invoice ->
-        Map.update(
-          invoice,
-          k,
-          v,
-          fn _x -> v end
-        )
-      end
-    )
+    struct(new(), map)
   end
 
   @spec add_item(Invoice.t(), Item.t()) :: Invoice.t()
