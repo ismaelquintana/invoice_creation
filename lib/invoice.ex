@@ -44,6 +44,15 @@ defmodule Invoice do
     struct(new(), map)
   end
 
+  @spec update(Invoice.t(), keyword()) :: Invoice.t()
+  def update(invoice, opts) do
+    map =
+      opts
+      |> Enum.into(%{})
+
+    struct(invoice, map)
+  end
+
   @spec add_item(Invoice.t(), Item.t()) :: Invoice.t()
   def add_item(invoice, item) do
     %Invoice{
