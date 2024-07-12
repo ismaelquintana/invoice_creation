@@ -58,29 +58,45 @@ defmodule InvoiceCreationTest do
     end
 
     test "create list invoice with year" do
-      list = ListInvoiceYear.new(2024)
+      list = ListInvoiceYear.new(next_id: 1, invoices: %{}, year: 2024)
 
       assert list == %ListInvoiceYear{invoices: %{}, next_id: 1, year: 2024}
     end
 
-    test "add invoice to list invoice year" do
-      invoice = Invoice.new()
-      year = invoice.date.year
+    test "add invoices to list invoice year" do
+      date1 = Faker.Date.forward(1)
+      date2 = Faker.Date.forward(2)
+      invoice1 = Invoice.new(date: date1)
+      invoice2 = Invoice.new(date: date2)
+      invoice3 = Invoice.new(date: date2)
+      year = invoice1.date.year
 
       _list_invoice = %ListInvoiceYear{
-        invoices: %{year => invoice},
+        invoices: %{year => invoice1},
         next_id: 1,
         year: year
       }
 
-      key_invoice = Integer.to_string(year) <> "-0001"
+      key_invoice1 = Integer.to_string(year) <> "-0001"
+      key_invoice2 = Integer.to_string(year) <> "-0002"
+      key_invoice3 = Integer.to_string(year) <> "-0003"
 
-      list = ListInvoiceYear.new(year)
-      list_with_invoice = ListInvoiceYear.add_invoice(list, invoice)
+      invoice2 = Invoice.update(invoice2, number: key_invoice2)
+      invoice3 = Invoice.update(invoice3, number: key_invoice3)
+
+      list_with_invoice =
+        ListInvoiceYear.new(invoices: %{}, next_id: 1, year: year)
+        |> ListInvoiceYear.add_invoice(invoice1)
+        |> ListInvoiceYear.add_invoice(invoice2)
+        |> ListInvoiceYear.add_invoice(invoice3)
 
       assert list_with_invoice == %ListInvoiceYear{
-               invoices: %{key_invoice => invoice},
-               next_id: 2,
+               invoices: %{
+                 key_invoice1 => invoice1,
+                 key_invoice2 => invoice2,
+                 key_invoice3 => invoice3
+               },
+               next_id: 4,
                year: year
              }
     end

@@ -18,9 +18,13 @@ defmodule ListInvoiceYear do
     %ListInvoiceYear{}
   end
 
-  @spec new(integer) :: ListInvoiceYear.t()
-  def new(year) do
-    %ListInvoiceYear{next_id: 1, year: year, invoices: Map.new()}
+  @spec new(keyword()) :: ListInvoiceYear.t()
+  def new(opts) do
+    map =
+      opts
+      |> Enum.into(%{})
+
+    struct(new(), map)
   end
 
   @spec add_invoice(ListInvoiceYear.t(), Invoice.t()) :: ListInvoiceYear.t()
