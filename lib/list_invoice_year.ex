@@ -2,15 +2,15 @@ defmodule ListInvoiceYear do
   @moduledoc """
   Struct for list of invoices per year
   """
-  defstruct year: nil, next_id: nil, invoices: nil
+  defstruct year: nil, next_id: 0, invoices: %{}
 
   @typedoc """
     Type that represents ListInvoiceYear struct
   """
   @type t :: %__MODULE__{
           year: integer() | nil,
-          next_id: integer() | nil,
-          invoices: Invoice.t() | nil
+          next_id: integer() | 0,
+          invoices: Invoice.t() | %{}
         }
 
   @spec new :: ListInvoiceYear.t()
