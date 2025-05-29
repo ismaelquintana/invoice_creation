@@ -54,7 +54,7 @@ defmodule InvoiceCreationTest do
     test "create list invoice" do
       list = ListInvoiceYear.new()
 
-      assert list == %ListInvoiceYear{invoices: nil, next_id: nil, year: nil}
+      assert list == %ListInvoiceYear{invoices: %{}, next_id: 0, year: nil}
     end
 
     test "create list invoice with year" do
@@ -116,7 +116,7 @@ defmodule InvoiceCreationTest do
         items: [],
         number: Integer.to_string(year) <> "-0001",
         sale_amount: 0,
-        vat: nil,
+        vat: 0,
         vendor_details: nil
       }
 
