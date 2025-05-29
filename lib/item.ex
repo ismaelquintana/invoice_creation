@@ -14,11 +14,7 @@ defmodule Item do
 
   @spec new(keyword()) :: Item.t()
   def new(opts) do
-    map =
-      opts
-      |> Enum.into(%{})
-
-    struct(new(), map)
+    struct(new(), opts)
   end
 
   @spec new :: Item.t()
@@ -28,10 +24,6 @@ defmodule Item do
 
   @spec update(Item.t(), keyword()) :: Item.t()
   def update(item, opts) do
-    map =
-      opts
-      |> Enum.into(%{})
-
-    struct(item, map)
+    struct(item, opts)
   end
 end
