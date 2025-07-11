@@ -23,13 +23,13 @@ defmodule Invoice do
           vat: integer()
         }
 
-  @spec new :: Invoice.t()
-  def new do
-    %Invoice{}
-  end
+  # @spec new :: Invoice.t()
+  # def new do
+  #   %Invoice{}
+  # end
 
   @spec new(keyword()) :: Invoice.t()
-  def new(opts) do
+  def new(opts \\ []) do
     struct(__MODULE__, opts)
   end
 

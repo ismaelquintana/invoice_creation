@@ -13,14 +13,14 @@ defmodule Item do
         }
 
   @spec new(keyword()) :: Item.t()
-  def new(opts) do
-    struct(new(), opts)
+  def new(opts \\ []) do
+    struct(__MODULE__, opts)
   end
 
-  @spec new :: Item.t()
-  def new do
-    %Item{}
-  end
+  # @spec new :: Item.t()
+  # def new do
+  #   %Item{}
+  # end
 
   @spec update(Item.t(), keyword()) :: Item.t()
   def update(item, opts) do
