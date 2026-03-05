@@ -5,22 +5,81 @@ defmodule InvoiceStorage do
   Provides a complete interface for saving and loading invoices from disk,
   supporting individual invoice operations and bulk year-based operations.
 
-  Storage format: JSON files organized by year
-  Storage location: priv/storage/ (configured via config)
+  ## Overview
 
-  Directory structure:
-    priv/storage/
-    ├── invoices/
-    │   ├── 2024/
-    │   │   ├── invoice-name.json
-    │   │   └── ...
-    │   └── 2023/
-    └── years/
-        ├── 2024.json
-        └── 2023.json
+  InvoiceStorage enables:
+  - Saving and loading individual invoices
+  - Bulk operations on entire years of invoices
+  - Metadata tracking (next invoice ID per year)
+  - File existence checks
+  - Year discovery and invoice counting
 
-  All functions return {:ok, result} or {:error, exception}.
-  Use InvoiceStorage.Error.format_error/1 for user-friendly error messages.
+  ## Storage Format & Location
+
+  - **Format:** JSON files with ISO 8601 dates
+  - **Location:** `priv/storage/` (configured via config)
+  - **Organization:** Year-based directory structure
+
+  ## Directory Structure
+
+      priv/storage/
+      ├── invoices/
+      │   ├── 2024/
+      │   │   ├── 2024-0001.json
+      │   │   ├── 2024-0002.json
+      │   │   └── ...
+      │   └── 2023/
+      │       └── ...
+      └── years/
+          ├── 2024.json (metadata: year, next_id)
+          └── 2023.json
+
+  ## Error Handling
+
+  All functions return:
+  - `{:ok, result}` on success
+  - `{:error, exception}` on failure
+
+  Error types include: `FileNotFound`, `IoError`, `InvalidJson`, `InvalidPath`, etc.
+
+  For user-friendly messages, use `InvoiceStorage.Error.format_error/1`.
+
+  ## Examples
+
+      # Save a single invoice
+      {:ok, invoice} = Invoice.new(bill_to: "Acme Corp")
+      :ok = InvoiceStorage.save(invoice)
+
+      # Load an invoice
+      {:ok, loaded} = InvoiceStorage.load("2024-0001", 2024)
+
+      # Check if invoice exists
+      true = InvoiceStorage.exists?("2024-0001", 2024)
+
+      # Save all invoices in a year
+      {:ok, list_year} = ListInvoiceYear.new(year: 2024)
+      :ok = InvoiceStorage.save_all(list_year)
+
+      # Load all invoices for a year
+      {:ok, invoices} = InvoiceStorage.load_all(2024)
+
+      # List all stored years
+      {:ok, years} = InvoiceStorage.list_years()
+
+  ## Configuration
+
+  Configure storage location in `config/config.exs`:
+
+      config :invoice_creation,
+        storage_dir: "priv/storage"
+
+  ## Database Adapter Pattern (Future)
+
+  While currently file-based, the storage layer is designed to support
+  database adapters. Future implementations should follow the same API
+  contract defined here while replacing file operations with database calls.
+
+  See `InvoiceStorage.DatabaseAdapter` (planned) for interface definition.
   """
 
   alias Invoice
@@ -71,10 +130,7 @@ defmodule InvoiceStorage do
       {:ok, invoice}
     else
       {:error, :enoent} ->
-        {:error,
-         FileNotFound.exception(
-           path: invoice_file_name(invoice_number)
-         )}
+        {:error, FileNotFound.exception(path: invoice_file_name(invoice_number))}
 
       {:error, %Jason.DecodeError{} = e} ->
         {:error,
@@ -110,10 +166,7 @@ defmodule InvoiceStorage do
       :ok
     else
       {:error, :enoent} ->
-        {:error,
-         FileNotFound.exception(
-           path: invoice_file_name(invoice_number)
-         )}
+        {:error, FileNotFound.exception(path: invoice_file_name(invoice_number))}
 
       {:error, reason} ->
         Error.from_file_error(reason, invoice_file_name(invoice_number))
@@ -253,10 +306,7 @@ defmodule InvoiceStorage do
       {:ok, list_year}
     else
       {:error, :enoent} ->
-        {:error,
-         FileNotFound.exception(
-           path: year_list_file_name(year)
-         )}
+        {:error, FileNotFound.exception(path: year_list_file_name(year))}
 
       {:error, %Jason.DecodeError{} = e} ->
         {:error,
@@ -349,7 +399,13 @@ defmodule InvoiceStorage do
   end
 
   defp invoice_path(invoice_number, year) when is_binary(invoice_number) and is_integer(year) do
-    {:ok, Path.join([storage_root(), "invoices", Integer.to_string(year), invoice_file_name(invoice_number)])}
+    {:ok,
+     Path.join([
+       storage_root(),
+       "invoices",
+       Integer.to_string(year),
+       invoice_file_name(invoice_number)
+     ])}
   end
 
   defp invoice_file_name(invoice_number) do

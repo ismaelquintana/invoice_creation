@@ -7,6 +7,49 @@ defmodule InvoiceStorage.Decoder do
 
   All functions return {:ok, struct} or {:error, exception}.
   Validation is performed after deserialization to catch data integrity issues.
+
+  ## Deserialization Strategy
+
+  - **Dates:** ISO 8601 strings converted back to Date structs
+  - **Items:** Lists of JSON objects reconstructed as Item structs
+  - **Validation:** All domain objects validated via their respective .new/1 functions
+  - **Error handling:** Failures at any stage return descriptive errors
+
+  ## Validation Guarantees
+
+  Deserialized objects are validated for:
+  - Correct field types (strings are strings, integers are integers, etc.)
+  - Business rule compliance (no negative amounts, no future dates, etc.)
+  - Boundary constraints (max length, max value, etc.)
+
+  This ensures that loaded objects are always valid and consistent with
+  the application's validation rules.
+
+  ## Examples
+
+      json_map = %{
+        "date" => "2024-03-05",
+        "number" => "2024-0001",
+        "bill_to" => "Acme Corp",
+        "vendor_details" => "123 Business St",
+        "items" => [
+          %{"description" => "Service", "units" => 2, "amount" => 100}
+        ],
+        "sale_amount" => 200,
+        "vat" => 42
+      }
+
+      {:ok, invoice} = InvoiceStorage.Decoder.decode_invoice(json_map)
+      # Returns fully validated Invoice struct
+
+  ## Error Cases
+
+  Decoding fails if:
+  - JSON is missing required fields
+  - Date strings are invalid ISO 8601 format
+  - Type mismatches (e.g., string instead of integer)
+  - Validation rules are violated
+  - Items list is malformed
   """
 
   alias Invoice

@@ -6,6 +6,33 @@ defmodule InvoiceStorage.Encoder do
   maps with proper type conversions (especially Date to ISO 8601 strings).
 
   All functions return {:ok, json_map} or {:error, exception}.
+
+  ## Serialization Strategy
+
+  - **Dates:** Converted to ISO 8601 strings (e.g., "2024-03-05")
+  - **Items:** Serialized as JSON objects with all fields
+  - **Nested structures:** Recursively encoded
+  - **Nil values:** Preserved as null in JSON
+
+  ## Examples
+
+      {:ok, item} = Item.new(description: "Service", units: 2, amount: 100)
+      {:ok, encoded} = InvoiceStorage.Encoder.encode_item(item)
+      # encoded = %{"description" => "Service", "units" => 2, "amount" => 100}
+
+      {:ok, invoice} = Invoice.new(bill_to: "Acme", date: ~D[2024-03-05])
+      {:ok, encoded} = InvoiceStorage.Encoder.encode_invoice(invoice)
+      # encoded = %{
+      #   "date" => "2024-03-05",
+      #   "number" => "2024-0001",
+      #   "bill_to" => "Acme",
+      #   ...
+      # }
+
+  ## Error Handling
+
+  All public functions return `{:ok, map}` or `{:error, exception}`.
+  Use the bang! variants for scenarios where you want exceptions raised.
   """
 
   alias Invoice

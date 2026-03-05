@@ -7,6 +7,45 @@ defmodule InvoiceStorage.Error do
   and Item.Error modules.
 
   Each error type includes context information for debugging and recovery.
+
+  ## Error Types
+
+  - `FileNotFound` - Invoice or metadata file not found on disk
+  - `PermissionDenied` - Insufficient permissions to access file
+  - `DiskFull` - No space available on storage device
+  - `InvalidPath` - Path construction failed due to invalid input
+  - `InvalidYear` - Year parameter invalid or missing
+  - `IoError` - General I/O error (disk error, corruption, etc.)
+  - `InvalidJson` - JSON file is malformed or corrupted
+  - `DecodeFailed` - Deserialization to domain objects failed
+  - `EncodeFailed` - Serialization from domain objects failed
+  - `ValidationFailed` - Deserialized data fails domain validation
+
+  ## Usage
+
+  All storage functions return `{:error, exception}` on failure.
+  Use `InvoiceStorage.Error.format_error/1` to convert to user-friendly messages:
+
+      case InvoiceStorage.load("2024-0001", 2024) do
+        {:ok, invoice} -> {:ok, invoice}
+        {:error, reason} ->
+          message = InvoiceStorage.Error.format_error(reason)
+          {:error, message}
+      end
+
+  ## Examples
+
+      # File not found
+      {:error, %FileNotFound{path: "2024-0001.json"}}
+
+      # Permission error
+      {:error, %PermissionDenied{path: "priv/storage/invoices/2024/"}}
+
+      # Invalid JSON data
+      {:error, %InvalidJson{path: "2024-0001.json", reason: error}}
+
+      # Validation failed during deserialization
+      {:error, %ValidationFailed{reason: error, message: msg}}
   """
 
   defmodule FileNotFound do

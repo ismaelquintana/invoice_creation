@@ -94,9 +94,10 @@ defmodule InvoiceStorageTest do
       {:ok, loaded} = InvoiceStorage.load(invoice.number, invoice.date.year)
 
       assert length(loaded.items) == length(invoice.items)
+
       assert Enum.all?(Enum.zip(loaded.items, invoice.items), fn {l, o} ->
-        l.description == o.description && l.units == o.units && l.amount == o.amount
-      end)
+               l.description == o.description && l.units == o.units && l.amount == o.amount
+             end)
     end
 
     test "correctly deserializes date from ISO 8601" do
@@ -360,7 +361,7 @@ defmodule InvoiceStorageTest do
     invoice
   end
 
-  defp create_item(description \\ "Test Item") do
+  defp create_item(description) do
     {:ok, item} =
       Item.new(
         description: description,
