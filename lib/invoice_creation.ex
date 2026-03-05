@@ -44,9 +44,9 @@ defmodule InvoiceCreation do
   """
 
   alias Invoice
+  alias InvoiceStorage
   alias Item
   alias ListInvoiceYear
-  alias InvoiceStorage
 
   # ============================================================================
   # Invoice Creation & Management
@@ -294,9 +294,8 @@ defmodule InvoiceCreation do
   """
   @spec save_year(ListInvoiceYear.t()) :: :ok | {:error, any()}
   def save_year(year_list) do
-    with :ok <- InvoiceStorage.save_all(year_list),
-         :ok <- InvoiceStorage.save_year_list(year_list) do
-      :ok
+    with :ok <- InvoiceStorage.save_all(year_list) do
+      InvoiceStorage.save_year_list(year_list)
     end
   end
 
@@ -338,8 +337,8 @@ defmodule InvoiceCreation do
       {:ok, years} = InvoiceCreation.list_stored_years()
       # years = [2024, 2023, 2022]
   """
-  @spec list_stored_years() :: {:ok, [pos_integer()]} | {:error, any()}
-  def list_stored_years() do
+  @spec list_stored_years :: {:ok, [pos_integer()]} | {:error, any()}
+  def list_stored_years do
     InvoiceStorage.list_years()
   end
 
@@ -409,29 +408,31 @@ defmodule InvoiceCreation do
       {:ok, json} = InvoiceCreation.export_all()
       :ok = File.write("complete_backup.json", json)
   """
-  @spec export_all() :: {:ok, String.t()} | {:error, any()}
-  def export_all() do
-    with {:ok, years} <- InvoiceStorage.list_years() do
-      results =
-        years
-        |> Enum.map(fn year ->
-          case InvoiceStorage.load_year_list(year) do
-            {:ok, year_list} ->
-              case InvoiceStorage.load_all(year) do
-                {:ok, invoices} ->
-                  %ListInvoiceYear{year_list | invoices: invoices}
+  @spec export_all :: {:ok, String.t()} | {:error, any()}
+  def export_all do
+    case InvoiceStorage.list_years() do
+      {:ok, years} ->
+        results =
+          Enum.flat_map(years, fn year ->
+            case InvoiceStorage.load_year_list(year) do
+              {:ok, year_list} ->
+                case InvoiceStorage.load_all(year) do
+                  {:ok, invoices} ->
+                    [%ListInvoiceYear{year_list | invoices: invoices}]
 
-                {:error, _} ->
-                  year_list
-              end
+                  {:error, _} ->
+                    [year_list]
+                end
 
-            {:error, _} ->
-              nil
-          end
-        end)
-        |> Enum.reject(&is_nil/1)
+              {:error, _} ->
+                []
+            end
+          end)
 
-      {:ok, Jason.encode!(results)}
+        {:ok, Jason.encode!(results)}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   rescue
     e -> {:error, e}
@@ -458,19 +459,25 @@ defmodule InvoiceCreation do
   """
   @spec import_year(String.t(), pos_integer()) :: :ok | {:error, any()}
   def import_year(json, year) do
-    try do
-      with {:ok, data} <- Jason.decode(json),
-           {:ok, year_list} <- InvoiceStorage.Decoder.decode_list_invoice_year(data) do
-        # Verify year matches
-        if year_list.year == year do
-          InvoiceStorage.save_all(year_list)
-        else
-          {:error, "Year mismatch: JSON contains year #{year_list.year}, expected #{year}"}
+    case Jason.decode(json) do
+      {:ok, data} ->
+        case InvoiceStorage.Decoder.decode_list_invoice_year(data) do
+          {:ok, year_list} ->
+            if year_list.year == year do
+              InvoiceStorage.save_all(year_list)
+            else
+              {:error, "Year mismatch: JSON contains year #{year_list.year}, expected #{year}"}
+            end
+
+          {:error, reason} ->
+            {:error, reason}
         end
-      end
-    rescue
-      e -> {:error, e}
+
+      {:error, reason} ->
+        {:error, reason}
     end
+  rescue
+    e -> {:error, e}
   end
 
   @doc """
@@ -492,28 +499,29 @@ defmodule InvoiceCreation do
   """
   @spec import_all(String.t()) :: :ok | {:error, any()}
   def import_all(json) do
-    try do
-      with {:ok, data} <- Jason.decode(json) do
-        if is_list(data) do
-          data
-          |> Enum.reduce_while(:ok, fn year_data, :ok ->
-            case InvoiceStorage.Decoder.decode_list_invoice_year(year_data) do
-              {:ok, year_list} ->
-                case InvoiceStorage.save_all(year_list) do
-                  :ok -> {:cont, :ok}
-                  error -> {:halt, error}
-                end
+    case Jason.decode(json) do
+      {:ok, data} when is_list(data) ->
+        data
+        |> Enum.reduce_while(:ok, fn year_data, :ok ->
+          case InvoiceStorage.Decoder.decode_list_invoice_year(year_data) do
+            {:ok, year_list} ->
+              case InvoiceStorage.save_all(year_list) do
+                :ok -> {:cont, :ok}
+                error -> {:halt, error}
+              end
 
-              {:error, reason} ->
-                {:halt, {:error, reason}}
-            end
-          end)
-        else
-          {:error, "Expected JSON array of year lists"}
-        end
-      end
-    rescue
-      e -> {:error, e}
+            {:error, reason} ->
+              {:halt, {:error, reason}}
+          end
+        end)
+
+      {:ok, _} ->
+        {:error, "Expected JSON array of year lists"}
+
+      {:error, reason} ->
+        {:error, reason}
     end
+  rescue
+    e -> {:error, e}
   end
 end
