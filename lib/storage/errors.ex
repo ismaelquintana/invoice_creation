@@ -181,6 +181,22 @@ defmodule InvoiceStorage.Error do
     end
   end
 
+  defmodule ValidationError do
+    defexception [:message, :field, :reason]
+
+    def message(%{message: msg}) when is_binary(msg) do
+      msg
+    end
+
+    def message(%{field: field, reason: reason}) do
+      "Validation error in #{field}: #{reason}"
+    end
+
+    def message(_) do
+      "Validation error"
+    end
+  end
+
   defmodule InvalidYear do
     defexception [:year, :reason, :message]
 

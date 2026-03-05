@@ -17,7 +17,8 @@ defmodule InvoiceCreation.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger],
+      mod: {InvoiceCreation.Application, []}
     ]
   end
 
@@ -28,7 +29,15 @@ defmodule InvoiceCreation.MixProject do
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       # {:mix_test_watch, "~> 1.2", only: [:dev, :test], runtime: false},
-      {:faker, "~> 0.18.0", only: :test}
+      {:faker, "~> 0.18.0", only: :test},
+      # Database and ORM
+      {:ecto_sql, "~> 3.10"},
+      {:postgrex, "~> 0.17"},
+      {:ecto_sqlite3, "~> 0.12"},
+      # CSV handling
+      {:csv, "~> 3.2"},
+      # Test data factory
+      {:ex_machina, "~> 2.7", only: :test}
     ]
   end
 end
