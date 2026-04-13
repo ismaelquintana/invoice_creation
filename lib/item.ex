@@ -25,6 +25,8 @@ defmodule Item do
   @max_description_length 500
   @max_units 1_000_000
   @max_amount 999_999_999
+
+  @derive Jason.Encoder
   defstruct description: "", units: 0, amount: 0
 
   @type t :: %__MODULE__{

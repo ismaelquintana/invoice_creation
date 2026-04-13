@@ -24,3 +24,8 @@ invoice_creation-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Environment files - NEVER COMMIT WITH REAL CREDENTIALS
+.env
+.env.local
+.env.*.local

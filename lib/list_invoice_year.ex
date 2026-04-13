@@ -13,6 +13,8 @@ defmodule ListInvoiceYear do
       iex> list.next_id
       0
   """
+
+  @derive Jason.Encoder
   defstruct year: nil, next_id: 0, invoices: %{}
 
   @typedoc """

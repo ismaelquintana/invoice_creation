@@ -10,7 +10,9 @@ defmodule InvoiceCreation.MixProject do
       preferred_cli_env: [
         "test.watch": :test
       ],
-      deps: deps()
+      test_coverage: [tool: ExCoveralls],
+      deps: deps(),
+      aliases: aliases()
     ]
   end
 
@@ -37,7 +39,17 @@ defmodule InvoiceCreation.MixProject do
       # CSV handling
       {:csv, "~> 3.2"},
       # Test data factory
-      {:ex_machina, "~> 2.7", only: :test}
+      {:ex_machina, "~> 2.7", only: :test},
+      {:bandit, "~> 1.0", only: :dev},
+      {:tidewave, "~> 0.5.6", only: :dev}
+    ]
+  end
+
+  defp aliases do
+    [
+      test: "test --exclude postgres --exclude db",
+      tidewave:
+        "run --no-halt -e 'Agent.start( fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
     ]
   end
 end

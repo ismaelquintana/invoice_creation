@@ -29,6 +29,8 @@ defmodule Invoice do
   @max_sale_amount 999_999_999
   # 10 years
   @max_invoice_age_days 3650
+
+  @derive Jason.Encoder
   defstruct date: Date.utc_today(),
             number: "#{Date.utc_today().year}-0001",
             bill_to: nil,

@@ -271,7 +271,7 @@ defmodule InvoiceCreation do
     if year do
       ListInvoiceYear.new(year: year)
     else
-      ListInvoiceYear.new()
+      ListInvoiceYear.new(year: Date.utc_today().year)
     end
   end
 
@@ -386,9 +386,12 @@ defmodule InvoiceCreation do
   @spec export_year(pos_integer()) :: {:ok, String.t()} | {:error, any()}
   def export_year(year) do
     with {:ok, year_list} <- InvoiceStorage.load_year_list(year),
-         {:ok, invoices} <- InvoiceStorage.load_all(year) do
-      year_list_with_invoices = %ListInvoiceYear{year_list | invoices: invoices}
-      {:ok, Jason.encode!(year_list_with_invoices)}
+         {:ok, invoices} <- InvoiceStorage.load_all(year),
+         year_list_with_invoices = %ListInvoiceYear{year_list | invoices: invoices},
+         {:ok, encoded} <-
+           InvoiceStorage.Encoder.encode_list_invoice_year(year_list_with_invoices),
+         json = Jason.encode!(encoded) do
+      {:ok, json}
     end
   rescue
     e -> {:error, e}
@@ -429,7 +432,15 @@ defmodule InvoiceCreation do
             end
           end)
 
-        {:ok, Jason.encode!(results)}
+        encoded_results =
+          Enum.map(results, fn year_list ->
+            case InvoiceStorage.Encoder.encode_list_invoice_year(year_list) do
+              {:ok, encoded} -> encoded
+              {:error, _} -> year_list
+            end
+          end)
+
+        {:ok, Jason.encode!(encoded_results)}
 
       {:error, reason} ->
         {:error, reason}
@@ -464,7 +475,10 @@ defmodule InvoiceCreation do
         case InvoiceStorage.Decoder.decode_list_invoice_year(data) do
           {:ok, year_list} ->
             if year_list.year == year do
-              InvoiceStorage.save_all(year_list)
+              with :ok <- InvoiceStorage.save_all(year_list),
+                   :ok <- InvoiceStorage.save_year_list(year_list) do
+                :ok
+              end
             else
               {:error, "Year mismatch: JSON contains year #{year_list.year}, expected #{year}"}
             end
@@ -506,8 +520,14 @@ defmodule InvoiceCreation do
           case InvoiceStorage.Decoder.decode_list_invoice_year(year_data) do
             {:ok, year_list} ->
               case InvoiceStorage.save_all(year_list) do
-                :ok -> {:cont, :ok}
-                error -> {:halt, error}
+                :ok ->
+                  case InvoiceStorage.save_year_list(year_list) do
+                    :ok -> {:cont, :ok}
+                    error -> {:halt, error}
+                  end
+
+                error ->
+                  {:halt, error}
               end
 
             {:error, reason} ->

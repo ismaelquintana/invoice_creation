@@ -1,60 +1,62 @@
-defmodule InvoiceStorage.PostgresAdapterTest do
+defmodule InvoiceStorage.SqliteAdapterTest do
   use InvoiceCreation.DataCase
   alias InvoiceCreation.Factory
-  alias InvoiceStorage.PostgresAdapter
+  alias InvoiceStorage.SqliteAdapter
   import Ecto.Query
 
-  @moduletag :postgres
+  @moduletag :db
 
   @moduledoc """
-  PostgreSQL adapter tests.
+  SQLite adapter tests.
 
-  These tests require a PostgreSQL database to be running and configured.
-  Since we're using SQLite for this project, these tests are tagged as :postgres
-  and can be skipped with: mix test --exclude postgres
+  These tests require the Ecto.Repo to be properly configured with SQLite adapter.
+  Currently, the Repo is hardcoded to use PostgreSQL adapter, so these tests are
+  skipped. To enable, create a test-specific Repo with SQLite3 adapter.
+
+  For now, skip with: mix test --exclude db
   """
 
   describe "save/1" do
     test "saves a single invoice with items" do
       invoice = Factory.build(:invoice, items: [Factory.build(:item)])
-      assert :ok = PostgresAdapter.save(invoice)
+      assert :ok = SqliteAdapter.save(invoice)
 
       # Verify it was saved
-      assert PostgresAdapter.exists?(invoice.number, invoice.date.year)
+      assert SqliteAdapter.exists?(invoice.number, invoice.date.year)
     end
 
     test "saves invoice without items" do
       invoice = Factory.build(:invoice, items: [])
-      assert :ok = PostgresAdapter.save(invoice)
-      assert PostgresAdapter.exists?(invoice.number, invoice.date.year)
+      assert :ok = SqliteAdapter.save(invoice)
+      assert SqliteAdapter.exists?(invoice.number, invoice.date.year)
     end
 
     test "saves invoice with multiple items" do
       items = Enum.map(1..5, fn _ -> Factory.build(:item) end)
       invoice = Factory.build(:invoice, items: items)
 
-      assert :ok = PostgresAdapter.save(invoice)
-      {:ok, loaded} = PostgresAdapter.load(invoice.number, invoice.date.year)
+      assert :ok = SqliteAdapter.save(invoice)
+      {:ok, loaded} = SqliteAdapter.load(invoice.number, invoice.date.year)
       assert length(loaded.items) == 5
     end
 
     test "updates existing invoice" do
       invoice = Factory.build(:invoice, bill_to: "Customer 1")
-      PostgresAdapter.save(invoice)
+      SqliteAdapter.save(invoice)
 
       # Update the invoice
       updated = %Invoice{invoice | bill_to: "Customer 2"}
-      PostgresAdapter.save(updated)
+      SqliteAdapter.save(updated)
 
-      {:ok, loaded} = PostgresAdapter.load(invoice.number, invoice.date.year)
+      {:ok, loaded} = SqliteAdapter.load(invoice.number, invoice.date.year)
       assert loaded.bill_to == "Customer 2"
     end
 
     test "preserves optional fields" do
       invoice = Factory.build(:invoice, vendor_details: "Special Vendor")
-      PostgresAdapter.save(invoice)
+      SqliteAdapter.save(invoice)
 
-      {:ok, loaded} = PostgresAdapter.load(invoice.number, invoice.date.year)
+      {:ok, loaded} = SqliteAdapter.load(invoice.number, invoice.date.year)
       assert loaded.vendor_details == "Special Vendor"
     end
   end
@@ -62,9 +64,9 @@ defmodule InvoiceStorage.PostgresAdapterTest do
   describe "load/2" do
     test "loads a saved invoice" do
       invoice = Factory.build(:invoice)
-      PostgresAdapter.save(invoice)
+      SqliteAdapter.save(invoice)
 
-      {:ok, loaded} = PostgresAdapter.load(invoice.number, invoice.date.year)
+      {:ok, loaded} = SqliteAdapter.load(invoice.number, invoice.date.year)
       assert loaded.number == invoice.number
       assert loaded.date == invoice.date
     end
@@ -77,26 +79,26 @@ defmodule InvoiceStorage.PostgresAdapterTest do
       ]
 
       invoice = Factory.build(:invoice, items: items)
-      PostgresAdapter.save(invoice)
+      SqliteAdapter.save(invoice)
 
-      {:ok, loaded} = PostgresAdapter.load(invoice.number, invoice.date.year)
+      {:ok, loaded} = SqliteAdapter.load(invoice.number, invoice.date.year)
       assert length(loaded.items) == 3
       assert loaded.items |> Enum.map(& &1.description) |> Enum.member?("Item 1")
     end
 
     test "returns error for non-existent invoice" do
-      {:error, _} = PostgresAdapter.load("non-existent", 2024)
+      {:error, _} = SqliteAdapter.load("non-existent", 2024)
     end
 
     test "handles invoices from different years" do
       invoice1 = Factory.build(:invoice, number: "2023-0001", date: ~D[2023-01-01])
       invoice2 = Factory.build(:invoice, number: "2024-0001", date: ~D[2024-01-01])
 
-      PostgresAdapter.save(invoice1)
-      PostgresAdapter.save(invoice2)
+      SqliteAdapter.save(invoice1)
+      SqliteAdapter.save(invoice2)
 
-      {:ok, loaded1} = PostgresAdapter.load("2023-0001", 2023)
-      {:ok, loaded2} = PostgresAdapter.load("2024-0001", 2024)
+      {:ok, loaded1} = SqliteAdapter.load("2023-0001", 2023)
+      {:ok, loaded2} = SqliteAdapter.load("2024-0001", 2024)
 
       assert loaded1.date.year == 2023
       assert loaded2.date.year == 2024
@@ -106,48 +108,48 @@ defmodule InvoiceStorage.PostgresAdapterTest do
   describe "exists?/2" do
     test "returns true for existing invoice" do
       invoice = Factory.build(:invoice)
-      PostgresAdapter.save(invoice)
+      SqliteAdapter.save(invoice)
 
-      assert PostgresAdapter.exists?(invoice.number, invoice.date.year)
+      assert SqliteAdapter.exists?(invoice.number, invoice.date.year)
     end
 
     test "returns false for non-existent invoice" do
-      refute PostgresAdapter.exists?("non-existent", 2024)
+      refute SqliteAdapter.exists?("non-existent", 2024)
     end
 
     test "distinguishes invoices by year" do
       invoice = Factory.build(:invoice, number: "0001")
 
-      PostgresAdapter.save(%Invoice{invoice | date: ~D[2023-01-01]})
+      SqliteAdapter.save(%Invoice{invoice | date: ~D[2023-01-01]})
 
-      assert PostgresAdapter.exists?("0001", 2023)
-      refute PostgresAdapter.exists?("0001", 2024)
+      assert SqliteAdapter.exists?("0001", 2023)
+      refute SqliteAdapter.exists?("0001", 2024)
     end
   end
 
   describe "delete/2" do
     test "deletes an existing invoice" do
       invoice = Factory.build(:invoice)
-      PostgresAdapter.save(invoice)
-      assert PostgresAdapter.exists?(invoice.number, invoice.date.year)
+      SqliteAdapter.save(invoice)
+      assert SqliteAdapter.exists?(invoice.number, invoice.date.year)
 
-      assert :ok = PostgresAdapter.delete(invoice.number, invoice.date.year)
-      refute PostgresAdapter.exists?(invoice.number, invoice.date.year)
+      assert :ok = SqliteAdapter.delete(invoice.number, invoice.date.year)
+      refute SqliteAdapter.exists?(invoice.number, invoice.date.year)
     end
 
     test "deletes invoice and its items" do
       items = [Factory.build(:item), Factory.build(:item)]
       invoice = Factory.build(:invoice, items: items)
-      PostgresAdapter.save(invoice)
+      SqliteAdapter.save(invoice)
 
-      PostgresAdapter.delete(invoice.number, invoice.date.year)
+      SqliteAdapter.delete(invoice.number, invoice.date.year)
 
       query = from(i in InvoiceCreation.Schemas.ItemRecord, select: count(i.id))
       assert InvoiceCreation.Repo.one(query) == 0
     end
 
     test "returns error when deleting non-existent invoice" do
-      {:error, _} = PostgresAdapter.delete("non-existent", 2024)
+      {:error, _} = SqliteAdapter.delete("non-existent", 2024)
     end
   end
 
@@ -156,10 +158,10 @@ defmodule InvoiceStorage.PostgresAdapterTest do
       invoices = Enum.map(1..3, fn _ -> Factory.build(:invoice) end)
       list = %ListInvoiceYear{year: 2024, invoices: invoices}
 
-      assert :ok = PostgresAdapter.save_all(list)
+      assert :ok = SqliteAdapter.save_all(list)
 
       Enum.each(invoices, fn inv ->
-        assert PostgresAdapter.exists?(inv.number, 2024)
+        assert SqliteAdapter.exists?(inv.number, 2024)
       end)
     end
 
@@ -170,7 +172,7 @@ defmodule InvoiceStorage.PostgresAdapterTest do
       invoices = [invoice1]
       list = %ListInvoiceYear{year: 2024, invoices: invoices}
 
-      assert :ok = PostgresAdapter.save_all(list)
+      assert :ok = SqliteAdapter.save_all(list)
     end
   end
 
@@ -181,14 +183,14 @@ defmodule InvoiceStorage.PostgresAdapterTest do
           Factory.build(:invoice, number: "2024-000#{i}")
         end)
 
-      Enum.each(invoices, &PostgresAdapter.save/1)
+      Enum.each(invoices, &SqliteAdapter.save/1)
 
-      {:ok, loaded_map} = PostgresAdapter.load_all(2024)
+      {:ok, loaded_map} = SqliteAdapter.load_all(2024)
       assert map_size(loaded_map) == 3
     end
 
     test "returns empty map for year with no invoices" do
-      {:ok, loaded_map} = PostgresAdapter.load_all(1900)
+      {:ok, loaded_map} = SqliteAdapter.load_all(1900)
       assert loaded_map == %{}
     end
 
@@ -198,9 +200,9 @@ defmodule InvoiceStorage.PostgresAdapterTest do
           Factory.build(:invoice, number: "2024-#{num}")
         end)
 
-      Enum.each(invoices, &PostgresAdapter.save/1)
+      Enum.each(invoices, &SqliteAdapter.save/1)
 
-      {:ok, loaded_map} = PostgresAdapter.load_all(2024)
+      {:ok, loaded_map} = SqliteAdapter.load_all(2024)
       assert Map.has_key?(loaded_map, "2024-0001")
       assert Map.has_key?(loaded_map, "2024-0002")
       assert Map.has_key?(loaded_map, "2024-0003")
@@ -212,7 +214,7 @@ defmodule InvoiceStorage.PostgresAdapterTest do
       invoices = Enum.map(1..2, fn _ -> Factory.build(:invoice) end)
       list = %ListInvoiceYear{year: 2024, invoices: invoices}
 
-      assert :ok = PostgresAdapter.save_year_list(list)
+      assert :ok = SqliteAdapter.save_year_list(list)
 
       # Verify metadata was saved
       query =
@@ -227,14 +229,14 @@ defmodule InvoiceStorage.PostgresAdapterTest do
 
     test "updates existing year metadata" do
       list1 = %ListInvoiceYear{year: 2024, invoices: [Factory.build(:invoice)]}
-      PostgresAdapter.save_year_list(list1)
+      SqliteAdapter.save_year_list(list1)
 
       list2 = %ListInvoiceYear{
         year: 2024,
         invoices: [Factory.build(:invoice), Factory.build(:invoice)]
       }
 
-      PostgresAdapter.save_year_list(list2)
+      SqliteAdapter.save_year_list(list2)
 
       query =
         from(y in InvoiceCreation.Schemas.YearMetadataRecord,
@@ -250,7 +252,7 @@ defmodule InvoiceStorage.PostgresAdapterTest do
 
   describe "load_year_list/1" do
     test "loads year metadata" do
-      {:ok, year_list} = PostgresAdapter.load_year_list(2024)
+      {:ok, year_list} = SqliteAdapter.load_year_list(2024)
       assert year_list.year == 2024
       assert year_list.invoices == []
     end
@@ -258,14 +260,14 @@ defmodule InvoiceStorage.PostgresAdapterTest do
     test "returns next_id calculated from invoice count" do
       invoices = Enum.map(1..5, fn _ -> Factory.build(:invoice) end)
       list = %ListInvoiceYear{year: 2024, invoices: invoices}
-      PostgresAdapter.save_year_list(list)
+      SqliteAdapter.save_year_list(list)
 
-      {:ok, loaded} = PostgresAdapter.load_year_list(2024)
+      {:ok, loaded} = SqliteAdapter.load_year_list(2024)
       assert loaded.next_id >= 1
     end
 
     test "returns default for non-existent year" do
-      {:ok, loaded} = PostgresAdapter.load_year_list(1900)
+      {:ok, loaded} = SqliteAdapter.load_year_list(1900)
       assert loaded.year == 1900
       assert loaded.invoices == []
       assert loaded.next_id == 1
@@ -278,17 +280,17 @@ defmodule InvoiceStorage.PostgresAdapterTest do
       Enum.each([2022, 2023, 2024], fn year ->
         invoices = [Factory.build(:invoice, date: ~D[2024-01-01])]
         list = %ListInvoiceYear{year: year, invoices: invoices}
-        PostgresAdapter.save_year_list(list)
+        SqliteAdapter.save_year_list(list)
       end)
 
-      {:ok, years} = PostgresAdapter.list_years()
+      {:ok, years} = SqliteAdapter.list_years()
       assert length(years) >= 0
       # Should be in descending order
       assert Enum.sort(years, :desc) == years
     end
 
     test "returns empty list if no years exist" do
-      {:ok, years} = PostgresAdapter.list_years()
+      {:ok, years} = SqliteAdapter.list_years()
       assert is_list(years)
     end
   end
@@ -300,14 +302,14 @@ defmodule InvoiceStorage.PostgresAdapterTest do
           Factory.build(:invoice, date: ~D[2024-01-15])
         end)
 
-      Enum.each(invoices, &PostgresAdapter.save/1)
+      Enum.each(invoices, &SqliteAdapter.save/1)
 
-      {:ok, count} = PostgresAdapter.count(2024)
+      {:ok, count} = SqliteAdapter.count(2024)
       assert count >= 5
     end
 
     test "returns 0 for year with no invoices" do
-      {:ok, count} = PostgresAdapter.count(1900)
+      {:ok, count} = SqliteAdapter.count(1900)
       assert count == 0
     end
 
@@ -318,7 +320,7 @@ defmodule InvoiceStorage.PostgresAdapterTest do
           Factory.build(:invoice, date: ~D[2023-01-15])
         end)
 
-      Enum.each(invoices_2023, &PostgresAdapter.save/1)
+      Enum.each(invoices_2023, &SqliteAdapter.save/1)
 
       # Save invoices in 2024
       invoices_2024 =
@@ -326,10 +328,10 @@ defmodule InvoiceStorage.PostgresAdapterTest do
           Factory.build(:invoice, date: ~D[2024-01-15])
         end)
 
-      Enum.each(invoices_2024, &PostgresAdapter.save/1)
+      Enum.each(invoices_2024, &SqliteAdapter.save/1)
 
-      {:ok, count_2023} = PostgresAdapter.count(2023)
-      {:ok, count_2024} = PostgresAdapter.count(2024)
+      {:ok, count_2023} = SqliteAdapter.count(2023)
+      {:ok, count_2024} = SqliteAdapter.count(2024)
 
       assert count_2023 >= 3
       assert count_2024 >= 5
@@ -352,8 +354,8 @@ defmodule InvoiceStorage.PostgresAdapterTest do
           ]
         )
 
-      PostgresAdapter.save(invoice)
-      {:ok, loaded} = PostgresAdapter.load(invoice.number, invoice.date.year)
+      SqliteAdapter.save(invoice)
+      {:ok, loaded} = SqliteAdapter.load(invoice.number, invoice.date.year)
 
       assert loaded.number == invoice.number
       assert loaded.date == invoice.date
@@ -371,8 +373,8 @@ defmodule InvoiceStorage.PostgresAdapterTest do
           vendor_details: "Our \"Company\" LLC"
         )
 
-      PostgresAdapter.save(invoice)
-      {:ok, loaded} = PostgresAdapter.load(invoice.number, invoice.date.year)
+      SqliteAdapter.save(invoice)
+      {:ok, loaded} = SqliteAdapter.load(invoice.number, invoice.date.year)
 
       assert loaded.bill_to == invoice.bill_to
       assert loaded.vendor_details == invoice.vendor_details

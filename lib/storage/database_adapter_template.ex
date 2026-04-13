@@ -3,28 +3,37 @@ defmodule InvoiceStorage.DatabaseAdapterTemplate do
   Template for implementing a database-backed storage adapter.
 
   This is a reference implementation showing how to create a database adapter
-  that implements the `InvoiceStorage.Adapter` behavior. Replace database calls
-  with your actual database library (Ecto, Postgrex, etc.).
+  that implements the `InvoiceStorage.Adapter` behavior. Use this as a guide to
+  create adapters for custom databases or ORMs.
 
   ## Usage
 
   To implement a real database adapter:
-  1. Copy this file to `lib/storage/database_adapter.ex`
-  2. Replace placeholders with actual database calls
+  1. Copy this file to `lib/storage/my_database_adapter.ex`
+  2. Replace database calls with your actual database library calls
   3. Configure in `config/config.exs`:
 
       config :invoice_creation,
-        storage_adapter: InvoiceStorage.DatabaseAdapter,
+        storage_adapter: InvoiceStorage.MyDatabaseAdapter,
         storage_config: [
           repo: MyApp.Repo
         ]
 
   4. Delete this template file
 
+  ## Implementation Patterns
+
+  This template demonstrates:
+  - How to implement all Adapter behavior callbacks
+  - Proper error handling with custom error types
+  - Data conversion between Invoice domain models and database records
+  - Transaction handling for atomicity (save_all)
+  - Query patterns for filtering and sorting
+
   ## Design Considerations
 
   - Use transactions for atomicity (save_all should be one transaction)
-  - Index on (invoice_number, year) for fast lookups
+  - Index on (number, date.year) for fast lookups
   - Keep year metadata separate for quick next_id lookups
   - Store dates as DATE type (ISO 8601 compatible)
   - Use NOT NULL constraints for required fields
@@ -35,155 +44,341 @@ defmodule InvoiceStorage.DatabaseAdapterTemplate do
 
   alias Invoice
   alias ListInvoiceYear
+  alias InvoiceStorage.Error
 
-  # Example: assuming Ecto with a Repo
-  @repo Application.compile_env(:invoice_creation, :repo, nil)
+  # ============================================================================
+  # Single Invoice Operations
+  # ============================================================================
 
-  def save(%Invoice{} = invoice) do
-    # TODO: Insert or update invoice in database
-    # - Convert invoice to database schema
-    # - Handle DATE field conversion (date to ISO string)
-    # - Validate business rules
-    # - Return :ok or {:error, exception}
+  @doc """
+  Saves a single invoice to the database.
+
+  Converts the Invoice domain model to database records and persists them.
+  Handles both new invoices (insert) and updates to existing invoices.
+
+  ## Implementation Notes
+  - Create an invoice record from the Invoice struct
+  - Create item records for each item
+  - Use cascading deletes for old items when updating
+  - Catch database constraint violations and convert to domain errors
+  """
+  @impl InvoiceStorage.Adapter
+  def save(%Invoice{} = _invoice) do
+    # Example implementation outline:
+    # 1. Convert invoice to database record
+    # 2. Insert or update in database
+    # 3. Handle constraint violations:
+    #    - Duplicate number+year -> return domain-friendly error
+    #    - Invalid field values -> return validation error
+    # 4. Return :ok on success, {:error, exception} on failure
     #
-    # Example structure:
-    #   Repo.insert_or_update(%InvoiceRecord{
-    #     invoice_number: invoice.number,
-    #     year: invoice.date.year,
-    #     date: invoice.date,
-    #     bill_to: invoice.bill_to,
-    #     vendor_details: invoice.vendor_details,
-    #     items: Jason.encode!(invoice.items),
-    #     sale_amount: invoice.sale_amount,
-    #     vat: invoice.vat
-    #   })
-    {:error, "Not implemented - database adapter template"}
-  end
-
-  def load(invoice_number, year) when is_binary(invoice_number) and is_integer(year) do
-    # TODO: Query database for invoice
-    # - Look up by (invoice_number, year)
-    # - Convert database record back to Invoice struct
-    # - Handle missing records gracefully
-    # - Return {:ok, Invoice} or {:error, exception}
-    #
-    # Example structure:
-    #   case Repo.get_by(InvoiceRecord, number: invoice_number, year: year) do
-    #     nil -> {:error, FileNotFound.exception(path: "#{year}/#{invoice_number}")}
-    #     record -> {:ok, from_database(record)}
+    # Pseudocode:
+    #   with {:ok, _record} <- insert_or_update_invoice(invoice),
+    #        {:ok, _items} <- save_items(invoice) do
+    #     :ok
+    #   else
+    #     {:error, reason} -> {:error, convert_db_error(reason)}
     #   end
-    {:error, "Not implemented - database adapter template"}
+
+    {:error,
+     Error.ValidationError.exception(
+       message: "save/1 not implemented in template. Copy to create a real adapter."
+     )}
   end
 
-  def exists?(invoice_number, year) when is_binary(invoice_number) and is_integer(year) do
-    # TODO: Check if invoice exists in database
-    # - Simple count query
-    # - Return boolean
+  @doc """
+  Loads a single invoice from the database.
+
+  Queries by invoice number and year, reconstructs the Invoice struct with all items.
+  """
+  @impl InvoiceStorage.Adapter
+  def load(invoice_number, year) when is_binary(invoice_number) and is_integer(year) do
+    # Example implementation outline:
+    # 1. Query database by (number, year)
+    # 2. If not found, return FileNotFound error
+    # 3. Convert database record to Invoice struct
+    # 4. Load associated items
+    # 5. Return {:ok, invoice} or {:error, exception}
     #
-    # Example: Repo.exists?(from r in InvoiceRecord, where: r.number == ^invoice_number and r.year == ^year)
+    # Pseudocode:
+    #   case query_by_number_and_year(invoice_number, year) do
+    #     nil -> {:error, FileNotFound.exception(...)}
+    #     record -> {:ok, invoice_from_record(record)}
+    #   end
+
+    {:error,
+     Error.FileNotFound.exception(
+       message: "load/2 not implemented in template. Copy to create a real adapter."
+     )}
+  end
+
+  @doc """
+  Checks if an invoice exists in the database.
+
+  Returns true/false without loading the full record (efficient).
+  """
+  @impl InvoiceStorage.Adapter
+  def exists?(invoice_number, year) when is_binary(invoice_number) and is_integer(year) do
+    # Example implementation outline:
+    # Use a COUNT query for efficiency:
+    #   repo.exists?(from r in InvoiceRecord,
+    #     where: r.number == ^invoice_number and year(r.date) == ^year)
+
     false
   end
 
+  @doc """
+  Deletes a single invoice from the database.
+
+  Removes the invoice and all associated items (cascading delete).
+  """
+  @impl InvoiceStorage.Adapter
   def delete(invoice_number, year) when is_binary(invoice_number) and is_integer(year) do
-    # TODO: Delete invoice from database
-    # - Handle non-existent invoices
-    # - Return :ok or {:error, exception}
+    # Example implementation outline:
+    # 1. Delete all items for this invoice first (or use cascading delete)
+    # 2. Delete the invoice record
+    # 3. Return :ok if deleted, error if not found
     #
-    # Example: Repo.delete_all(from r in InvoiceRecord, where: r.number == ^invoice_number and r.year == ^year)
-    {:error, "Not implemented - database adapter template"}
+    # Pseudocode:
+    #   case repo.delete_all(from r in InvoiceRecord,
+    #         where: r.number == ^invoice_number and year(r.date) == ^year) do
+    #     {0, _} -> {:error, FileNotFound.exception(...)}
+    #     {_count, _} -> :ok
+    #   end
+
+    {:error,
+     Error.ValidationError.exception(
+       message: "delete/2 not implemented in template. Copy to create a real adapter."
+     )}
   end
 
-  def save_all(%ListInvoiceYear{} = list_year) do
-    # TODO: Save all invoices in a transaction
-    # - Use database transaction for atomicity
-    # - Save each invoice
-    # - If any fails, rollback
-    # - Return :ok or {:error, exception}
+  # ============================================================================
+  # Batch Invoice Operations
+  # ============================================================================
+
+  @doc """
+  Saves all invoices in a ListInvoiceYear as a transaction.
+
+  All invoices are saved atomically - either all succeed or all fail.
+  This is critical for maintaining consistency.
+  """
+  @impl InvoiceStorage.Adapter
+  def save_all(%ListInvoiceYear{} = _list_year) do
+    # Example implementation outline:
+    # 1. Start a database transaction
+    # 2. Save each invoice in the list
+    # 3. If any fail, rollback entire transaction
+    # 4. Return :ok or {:error, exception}
     #
-    # Example:
-    #   Repo.transaction(fn ->
-    #     list_year.invoices |> Enum.each(fn {_num, invoice} ->
-    #       save(invoice)
+    # Pseudocode:
+    #   @repo.transaction(fn ->
+    #     list_year.invoices
+    #     |> Enum.each(fn {_number, invoice} ->
+    #       case save(invoice) do
+    #         :ok -> :ok
+    #         {:error, reason} -> raise reason
+    #       end
     #     end)
     #   end)
-    {:error, "Not implemented - database adapter template"}
-  end
-
-  def load_all(year) when is_integer(year) do
-    # TODO: Load all invoices for a year
-    # - Query all invoices with matching year
-    # - Convert to map keyed by invoice_number
-    # - Return {:ok, map} or {:error, exception}
-    # - Return {:ok, %{}} if no invoices for year
-    #
-    # Example:
-    #   case Repo.all(from r in InvoiceRecord, where: r.year == ^year) do
-    #     records -> {:ok, records |> Enum.map(&from_database/1) |> Enum.into(%{}, fn inv -> {inv.number, inv} end)}
-    #     [] -> {:ok, %{}}
+    #   |> case do
+    #     {:ok, :ok} -> :ok
+    #     {:error, reason} -> {:error, reason}
     #   end
-    {:error, "Not implemented - database adapter template"}
+
+    {:error,
+     Error.ValidationError.exception(
+       message: "save_all/1 not implemented in template. Copy to create a real adapter."
+     )}
   end
 
-  def save_year_list(%ListInvoiceYear{} = list_year) do
-    # TODO: Save year metadata
-    # - Insert or update year record with next_id
-    # - Return :ok or {:error, exception}
+  @doc """
+  Loads all invoices for a specific year.
+
+  Returns a map keyed by invoice number for consistent structure.
+  """
+  @impl InvoiceStorage.Adapter
+  def load_all(year) when is_integer(year) do
+    # Example implementation outline:
+    # 1. Query all invoices with matching year
+    # 2. Preload items for each invoice
+    # 3. Convert to Invoice structs
+    # 4. Build map: {number => invoice}
+    # 5. Return {:ok, map} or {:error, exception}
+    # 6. Return {:ok, %{}} if no invoices exist for the year
     #
-    # Example:
-    #   Repo.insert_or_update(%YearRecord{
+    # Pseudocode:
+    #   case repo.all(from r in InvoiceRecord, where: year(r.date) == ^year, preload: :items) do
+    #     [] -> {:ok, %{}}
+    #     records ->
+    #       invoices = Enum.map(records, &invoice_from_record/1)
+    #       map = Enum.into(invoices, %{}, fn inv -> {inv.number, inv} end)
+    #       {:ok, map}
+    #   end
+
+    {:error,
+     Error.ValidationError.exception(
+       message: "load_all/1 not implemented in template. Copy to create a real adapter."
+     )}
+  end
+
+  # ============================================================================
+  # Year Metadata Operations
+  # ============================================================================
+
+  @doc """
+  Saves year metadata (next_id counter).
+
+  This allows tracking the next invoice number to generate for a year.
+  """
+  @impl InvoiceStorage.Adapter
+  def save_year_list(%ListInvoiceYear{} = _list_year) do
+    # Example implementation outline:
+    # 1. Create or update year metadata record
+    # 2. Store: year, next_id, created_at, updated_at
+    # 3. Return :ok or {:error, exception}
+    #
+    # Pseudocode:
+    #   changeset = YearMetadataRecord.changeset(%YearMetadataRecord{}, %{
     #     year: list_year.year,
     #     next_id: list_year.next_id
     #   })
-    {:error, "Not implemented - database adapter template"}
-  end
-
-  def load_year_list(year) when is_integer(year) do
-    # TODO: Load year metadata
-    # - Query year record
-    # - Return ListInvoiceYear with empty invoices
-    # - Return error if year not found
-    #
-    # Example:
-    #   case Repo.get(YearRecord, year) do
-    #     nil -> {:error, "Year #{year} not found"}
-    #     record -> {:ok, %ListInvoiceYear{year: record.year, next_id: record.next_id, invoices: %{}}}
+    #   case repo.insert_or_update(changeset) do
+    #     {:ok, _record} -> :ok
+    #     {:error, reason} -> {:error, reason}
     #   end
-    {:error, "Not implemented - database adapter template"}
+
+    {:error,
+     Error.ValidationError.exception(
+       message: "save_year_list/1 not implemented in template. Copy to create a real adapter."
+     )}
   end
 
+  @doc """
+  Loads year metadata for a specific year.
+
+  Returns next_id and creates ListInvoiceYear with empty invoices.
+  Invoices should be loaded separately with load_all/1.
+  """
+  @impl InvoiceStorage.Adapter
+  def load_year_list(year) when is_integer(year) do
+    # Example implementation outline:
+    # 1. Query year metadata by year
+    # 2. If not found, return error (year doesn't exist)
+    # 3. Create ListInvoiceYear with empty invoices
+    # 4. Return {:ok, ListInvoiceYear} or {:error, exception}
+    #
+    # Pseudocode:
+    #   case repo.get(YearMetadataRecord, year) do
+    #     nil -> {:error, "Year #{year} not found"}
+    #     record -> {:ok, %ListInvoiceYear{
+    #       year: record.year,
+    #       next_id: record.next_id,
+    #       invoices: %{}
+    #     }}
+    #   end
+
+    {:error,
+     Error.ValidationError.exception(
+       message: "load_year_list/1 not implemented in template. Copy to create a real adapter."
+     )}
+  end
+
+  @doc """
+  Lists all years that have invoices.
+
+  Returns years sorted in descending order (newest first).
+  """
+  @impl InvoiceStorage.Adapter
   def list_years() do
-    # TODO: Get list of all years with invoices
-    # - Query distinct years
-    # - Sort descending (newest first)
-    # - Return {:ok, list} or {:error, exception}
+    # Example implementation outline:
+    # 1. Query distinct years from year metadata or invoice records
+    # 2. Sort descending (newest first)
+    # 3. Return {:ok, [2024, 2023, 2022]} or {:error, exception}
     #
-    # Example: {:ok, Repo.all(from r in YearRecord, select: r.year, order_by: [desc: r.year])}
-    {:error, "Not implemented - database adapter template"}
+    # Pseudocode:
+    #   years = repo.all(from r in YearMetadataRecord, select: r.year, order_by: [desc: r.year])
+    #   {:ok, years}
+
+    {:error,
+     Error.ValidationError.exception(
+       message: "list_years/0 not implemented in template. Copy to create a real adapter."
+     )}
   end
 
+  @doc """
+  Counts invoices in a specific year.
+
+  Efficient count query without loading full records.
+  """
+  @impl InvoiceStorage.Adapter
   def count(year) when is_integer(year) do
-    # TODO: Count invoices in a year
-    # - Query count with year filter
-    # - Return {:ok, count} or {:error, exception}
+    # Example implementation outline:
+    # 1. COUNT query filtered by year
+    # 2. Return {:ok, count} or {:error, exception}
     #
-    # Example: {:ok, Repo.one(from r in InvoiceRecord, where: r.year == ^year, select: count(r.id))}
-    {:error, "Not implemented - database adapter template"}
+    # Pseudocode:
+    #   count = repo.one(from r in InvoiceRecord, where: year(r.date) == ^year, select: count(r.id))
+    #   {:ok, count}
+
+    {:error,
+     Error.ValidationError.exception(
+       message: "count/1 not implemented in template. Copy to create a real adapter."
+     )}
   end
 
   # ============================================================================
-  # Helper: Convert between database record and Invoice struct
+  # Helper: Data Conversion Functions
   # ============================================================================
 
-  # TODO: Implement conversion functions
-  # defp from_database(%InvoiceRecord{} = record) do
-  #   %Invoice{
-  #     number: record.invoice_number,
+  # Example helper to convert a database record to an Invoice struct.
+  #
+  # This is commented out because it depends on your specific database schema.
+  # Uncomment and customize for your implementation.
+  #
+  # ## Pattern
+  #
+  # ```elixir
+  # defp invoice_from_record(%InvoiceRecord{} = record) do
+  #   items = Enum.map(record.items, fn item ->
+  #     %Item{
+  #       description: item.description,
+  #       units: item.units,
+  #       amount: item.amount
+  #     }
+  #   end)
+  #
+  #   {:ok, %Invoice{
+  #     number: record.number,
   #     date: record.date,
   #     bill_to: record.bill_to,
   #     vendor_details: record.vendor_details,
-  #     items: Jason.decode!(record.items),
+  #     items: items,
   #     sale_amount: record.sale_amount,
   #     vat: record.vat
-  #   }
+  #   }}
+  # end
+  # ```
+  #
+  # To use: Uncomment and customize for your implementation.
+
+  # TEMPLATE HELPER - UNCOMMENT AND CUSTOMIZE
+  # defp invoice_from_record(%InvoiceRecord{} = record) do
+  #   items = Enum.map(record.items, fn item ->
+  #     %Item{
+  #       description: item.description,
+  #       units: item.units,
+  #       amount: item.amount
+  #     }
+  #   end)
+  #
+  #   {:ok, %Invoice{
+  #     number: record.number,
+  #     date: record.date,
+  #     bill_to: record.bill_to,
+  #     vendor_details: record.vendor_details,
+  #     items: items,
+  #     sale_amount: record.sale_amount,
+  #     vat: record.vat
+  #   }}
   # end
 end

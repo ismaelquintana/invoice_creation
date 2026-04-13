@@ -337,19 +337,52 @@ defmodule InvoiceStorage do
   Returns {:ok, years_list} on success or {:error, exception} on failure.
   """
   def list_years do
-    with {:ok, invoices_dir} <- invoices_directory(),
-         {:ok, dirs} <- File.ls(invoices_dir) do
-      years =
-        dirs
-        |> Enum.filter(&year_directory_exists?(&1, invoices_dir))
-        |> Enum.map(&String.to_integer/1)
-        |> Enum.sort(:desc)
+    # Check both year list files and invoice year directories for backward compatibility
+    years_from_files =
+      case years_directory() do
+        {:ok, years_dir} ->
+          case File.ls(years_dir) do
+            {:ok, files} ->
+              files
+              |> Enum.filter(&String.ends_with?(&1, ".json"))
+              |> Enum.map(&String.replace_trailing(&1, ".json", ""))
+              |> Enum.map(&String.to_integer/1)
 
-      {:ok, years}
-    else
-      {:error, :enoent} -> {:ok, []}
-      {:error, reason} -> {:error, reason}
-    end
+            {:error, :enoent} ->
+              []
+
+            {:error, _} ->
+              []
+          end
+      end
+
+    # Also check invoice directories for years with saved invoices
+    years_from_invoices =
+      case invoices_directory() do
+        {:ok, invoices_dir} ->
+          case File.ls(invoices_dir) do
+            {:ok, dirs} ->
+              dirs
+              |> Enum.filter(fn dir ->
+                File.dir?(Path.join(invoices_dir, dir))
+              end)
+              |> Enum.map(&String.to_integer/1)
+
+            {:error, :enoent} ->
+              []
+
+            {:error, _} ->
+              []
+          end
+      end
+
+    # Combine and deduplicate
+    all_years =
+      (years_from_files ++ years_from_invoices)
+      |> Enum.uniq()
+      |> Enum.sort(:desc)
+
+    {:ok, all_years}
   rescue
     e -> {:error, IoError.exception(operation: "list_years", reason: e)}
   end
@@ -390,6 +423,10 @@ defmodule InvoiceStorage do
     Path.join([:code.priv_dir(:invoice_creation), "storage"])
   end
 
+  defp years_directory do
+    {:ok, Path.join(storage_root(), "years")}
+  end
+
   defp invoices_directory do
     {:ok, Path.join(storage_root(), "invoices")}
   end
@@ -428,9 +465,5 @@ defmodule InvoiceStorage do
 
   defp extract_invoice_number(file_name) do
     String.replace_suffix(file_name, ".json", "")
-  end
-
-  defp year_directory_exists?(dir_name, parent_path) do
-    File.dir?(Path.join(parent_path, dir_name))
   end
 end

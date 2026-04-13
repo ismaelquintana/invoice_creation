@@ -150,27 +150,24 @@ defmodule InvoiceStorage.Csv.Decoder do
   @spec parse_csv(String.t()) :: {:ok, [[String.t()]]} | {:error, Error.t()}
   defp parse_csv(csv_string) do
     try do
-      # Split by newlines, trim each line, and decode each row
+      # Split by newlines, trim each line, and decode each row using CSV library
       rows =
         csv_string
         |> String.split("\n")
         |> Enum.map(&String.trim/1)
         |> Enum.reject(&(String.length(&1) == 0))
-        |> Enum.map(&decode_row/1)
+        |> Enum.map(fn line ->
+          case CSV.decode([line]) |> Enum.to_list() do
+            [{:ok, row}] when is_list(row) -> row
+            _ -> []
+          end
+        end)
         |> Enum.reject(&Enum.empty?/1)
 
       {:ok, rows}
     rescue
       e ->
         {:error, Error.ValidationError.exception(message: "Failed to parse CSV: #{inspect(e)}")}
-    end
-  end
-
-  @spec decode_row(String.t()) :: [String.t()]
-  defp decode_row(line) do
-    case CSV.decode([line]) |> Enum.to_list() do
-      [{:ok, row}] when is_list(row) -> row
-      _ -> []
     end
   end
 
@@ -227,15 +224,24 @@ defmodule InvoiceStorage.Csv.Decoder do
           {{:ok, invoices}, {:ok, invoice_number, invoice, item}} ->
             # Group by invoice number
             updated_invoices =
-              Map.update(invoices, invoice_number, invoice, fn existing ->
-                case item do
-                  nil ->
-                    existing
+              if Map.has_key?(invoices, invoice_number) do
+                # Invoice already exists, append item if present
+                Map.update!(invoices, invoice_number, fn existing ->
+                  case item do
+                    nil -> existing
+                    item -> %{existing | items: existing.items ++ [item]}
+                  end
+                end)
+              else
+                # New invoice, insert it with item if present
+                new_invoice =
+                  case item do
+                    nil -> invoice
+                    item -> %{invoice | items: [item]}
+                  end
 
-                  item ->
-                    %{existing | items: existing.items ++ [item]}
-                end
-              end)
+                Map.put(invoices, invoice_number, new_invoice)
+              end
 
             {:cont, {:ok, updated_invoices}}
 
