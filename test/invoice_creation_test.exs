@@ -860,6 +860,44 @@ defmodule InvoiceCreationTest do
       assert invoice2.vat == 21
     end
 
+    test "update invoice with items recalculates sale_amount" do
+      {:ok, item1} = Item.new(description: "Service 1", units: 2, amount: 100)
+      {:ok, item2} = Item.new(description: "Service 2", units: 3, amount: 50)
+      {:ok, invoice} = Invoice.new()
+
+      {:ok, updated} = Invoice.update(invoice, items: [item1, item2])
+
+      assert length(updated.items) == 2
+      assert updated.sale_amount == 350
+    end
+
+    test "update invoice with empty items sets sale_amount to 0" do
+      {:ok, item} = Item.new(description: "Service", units: 2, amount: 100)
+      {:ok, invoice} = Invoice.new()
+      {:ok, invoice_with_item} = Invoice.add_item(invoice, item)
+      assert invoice_with_item.sale_amount == 200
+
+      {:ok, updated} = Invoice.update(invoice_with_item, items: [])
+
+      assert updated.items == []
+      assert updated.sale_amount == 0
+    end
+
+    test "reject update invoice with invalid items" do
+      {:ok, invoice} = Invoice.new()
+      invalid_item = %{description: "Invalid"}
+
+      assert {:error, error} = Invoice.update(invoice, items: [invalid_item])
+      assert is_struct(error, Invoice.Error)
+    end
+
+    test "reject update invoice with nil items list" do
+      {:ok, invoice} = Invoice.new()
+
+      assert {:error, error} = Invoice.update(invoice, items: nil)
+      assert error.type == :invalid_items_list
+    end
+
     test "add item to invoice" do
       {:ok, item} = Item.new(description: "Service", units: 2, amount: 100)
       {:ok, invoice} = Invoice.new()

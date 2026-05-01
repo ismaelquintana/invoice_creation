@@ -95,8 +95,20 @@ defmodule Invoice do
   """
   @spec update(Invoice.t(), keyword()) :: {:ok, Invoice.t()} | {:error, Invoice.Error.t()}
   def update(invoice, opts) do
-    with :ok <- validate_invoice(opts) do
-      {:ok, struct(invoice, opts)}
+    if Keyword.has_key?(opts, :items) and Keyword.get(opts, :items) === nil do
+      {:error, Invoice.Error.invalid_items_list(nil)}
+    else
+      with :ok <- validate_invoice(opts) do
+        final_opts =
+          if items = Keyword.get(opts, :items) do
+            new_sale_amount = calculate_total_sale_amount(items)
+            Keyword.put(opts, :sale_amount, new_sale_amount)
+          else
+            opts
+          end
+
+        {:ok, struct(invoice, final_opts)}
+      end
     end
   end
 
@@ -174,6 +186,7 @@ defmodule Invoice do
 
   @spec validate_invoice(keyword()) :: :ok | {:error, Invoice.Error.t()}
   defp validate_invoice(opts) do
+    items = Keyword.get(opts, :items)
     date = Keyword.get(opts, :date)
     number = Keyword.get(opts, :number)
     bill_to = Keyword.get(opts, :bill_to)
@@ -181,7 +194,8 @@ defmodule Invoice do
     vat = Keyword.get(opts, :vat)
     sale_amount = Keyword.get(opts, :sale_amount)
 
-    with :ok <- validate_date(date),
+    with :ok <- validate_items(items),
+         :ok <- validate_date(date),
          :ok <- validate_number(number),
          :ok <- validate_bill_to(bill_to),
          :ok <- validate_vendor_details(vendor_details),
@@ -367,5 +381,28 @@ defmodule Invoice do
   @spec calculate_item_cost(Item.t()) :: non_neg_integer()
   defp calculate_item_cost(%Item{amount: amount, units: units}) do
     amount * units
+  end
+
+  @spec calculate_total_sale_amount([Item.t()]) :: non_neg_integer()
+  defp calculate_total_sale_amount(items) do
+    Enum.reduce(items, 0, fn %Item{amount: a, units: u}, acc -> acc + a * u end)
+  end
+
+  @spec validate_items(any()) :: :ok | {:error, Invoice.Error.t()}
+  defp validate_items(nil), do: :ok
+
+  defp validate_items(items) when not is_list(items) do
+    {:error, Invoice.Error.invalid_items_list(items)}
+  end
+
+  defp validate_items([]), do: :ok
+
+  defp validate_items(items) do
+    Enum.reduce_while(items, :ok, fn item, :ok ->
+      case validate_item_for_invoice(item) do
+        :ok -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
   end
 end
